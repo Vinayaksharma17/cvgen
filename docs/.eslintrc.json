@@ -1,19 +1,18 @@
 {
-
-      "// NOTE": "Suggested Prettier configuration for project owner",
-      "// INSTRUCTION": "Rename this file to .eslintrc.json to activate",
-  
   "env": {
     "browser": true,
-    "es2021": true,
-    "node": true
+    "es2021": true
   },
   "extends": [
     "eslint:recommended"
   ],
   "parserOptions": {
     "ecmaVersion": "latest",
-    "sourceType": "module"
+    "sourceType": "script"
+  },
+  "globals": {
+    "Handlebars": "readonly",
+    "saveAs": "readonly"
   },
   "rules": {
     "indent": ["error", 4],

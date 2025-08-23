@@ -439,7 +439,7 @@ class CVEditor {
         try {
             // Register Handlebars helpers only once
             if (!Handlebars.helpers.join) {
-                Handlebars.registerHelper('join', function(array, options) {
+                Handlebars.registerHelper('join', function(array) {
                     if (!array || !Array.isArray(array)) return '';
                     return array.join(', ');
                 });

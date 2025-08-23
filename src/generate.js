@@ -9,21 +9,17 @@ import { program } from 'commander';
 import chalk from 'chalk';
 import fs from 'fs-extra';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import Handlebars from 'handlebars';
 import puppeteer from 'puppeteer';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
-import ajvErrors from "ajv-errors";
+import ajvErrors from 'ajv-errors';
 import ValidationSchema from './validation/schema.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Initialize JSON schema validator
 const ajv = new Ajv({ allErrors: true, strict: false });
 addFormats(ajv);
-ajvErrors(ajv)
+ajvErrors(ajv);
 
 class CVGenerator {
     constructor() {
@@ -33,19 +29,28 @@ class CVGenerator {
     }
 
     /**
-     * Load and validate JSON data from file using Ajv and imported ValidationSchema
-     */
+   * Load and validate JSON data from file using Ajv and imported ValidationSchema
+   */
     async loadJsonData(filePath) {
         try {
             const data = await fs.readJson(filePath);
             const valid = this.ajvValidate(data);
             if (!valid) {
-                console.log(chalk.red('❌ Input data validation failed. See details below:'));
+                console.log(
+                    chalk.red('❌ Input data validation failed. See details below:')
+                );
                 this.ajvValidate.errors.forEach((err, idx) => {
                     const field = err.instancePath ? err.instancePath : '(root)';
                     const message = err.message;
-                    const expected = err.params && err.params.type ? `Expected type: ${err.params.type}` : '';
-                    console.log(chalk.yellow(`  ${idx + 1}. Field: ${field} - ${message} ${expected}`));
+                    const expected =
+            err.params && err.params.type
+                ? `Expected type: ${err.params.type}`
+                : '';
+                    console.log(
+                        chalk.yellow(
+                            `  ${idx + 1}. Field: ${field} - ${message} ${expected}`
+                        )
+                    );
                 });
                 throw new Error('Input data validation failed. See above for details.');
             }
@@ -61,18 +66,18 @@ class CVGenerator {
     }
 
     /**
-     * Load HTML template from file
-     */
+   * Load HTML template from file
+   */
     async loadTemplate(templatePath) {
         try {
             const templateContent = await fs.readFile(templatePath, 'utf-8');
-            
+
             // Register Handlebars helpers
-            Handlebars.registerHelper('join', function(array, options) {
+            Handlebars.registerHelper('join', function (array) {
                 if (!array || !Array.isArray(array)) return '';
                 return array.join(', ');
             });
-            
+
             return Handlebars.compile(templateContent);
         } catch (error) {
             if (error.code === 'ENOENT') {
@@ -83,8 +88,8 @@ class CVGenerator {
     }
 
     /**
-     * Render HTML using Handlebars template and data
-     */
+   * Render HTML using Handlebars template and data
+   */
     renderHtml(template, data) {
         try {
             return template(data);
@@ -94,36 +99,43 @@ class CVGenerator {
     }
 
     /**
-     * Save HTML content to file
-     */
+   * Save HTML content to file
+   */
     async saveHtml(htmlContent, outputPath) {
         try {
             await fs.ensureDir(path.dirname(outputPath));
             await fs.writeFile(outputPath, htmlContent, 'utf-8');
-            console.log(chalk.green(`✅ HTML file generated successfully: ${outputPath}`));
-            console.log(chalk.blue('💡 Tip: Open this file in your browser and use "Print to PDF" to create a PDF version.'));
+            console.log(
+                chalk.green(`✅ HTML file generated successfully: ${outputPath}`)
+            );
+            console.log(
+                chalk.blue(
+                    '💡 Tip: Open this file in your browser and use "Print to PDF" to create a PDF version.'
+                )
+            );
         } catch (error) {
             throw new Error(`Error saving HTML file: ${error.message}`);
         }
     }
 
     /**
-     * Generate PDF from HTML content using Puppeteer
-     */
+   * Generate PDF from HTML content using Puppeteer
+   */
     async generatePdf(htmlContent, outputPath) {
         let browser;
         try {
             browser = await puppeteer.launch({
                 headless: 'new',
-                executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-                args: ['--no-sandbox', '--disable-setuid-sandbox']
+                executablePath:
+          '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+                args: ['--no-sandbox', '--disable-setuid-sandbox'],
             });
-            
+
             const page = await browser.newPage();
-            
+
             // Set content and wait for fonts to load
             await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-            
+
             // Generate PDF with proper settings
             await page.pdf({
                 path: outputPath,
@@ -132,14 +144,13 @@ class CVGenerator {
                     top: '0mm',
                     right: '0mm',
                     bottom: '0mm',
-                    left: '0mm'
+                    left: '0mm',
                 },
                 printBackground: true,
-                preferCSSPageSize: true
+                preferCSSPageSize: true,
             });
-            
+
             console.log(chalk.green(`✅ PDF generated successfully: ${outputPath}`));
-            
         } catch (error) {
             console.log(chalk.red(`❌ Error generating PDF: ${error.message}`));
             console.log(chalk.yellow('🔄 Falling back to HTML generation...'));
@@ -153,22 +164,22 @@ class CVGenerator {
     }
 
     /**
-     * Basic validation of CV data structure
-     */
+   * Basic validation of CV data structure
+   */
     validateData(data) {
         const requiredFields = ['personal_info', 'summary'];
         const warnings = [];
-        
+
         for (const field of requiredFields) {
             if (!data[field]) {
                 warnings.push(`Missing '${field}' in data`);
             }
         }
-        
+
         if (data.personal_info && !data.personal_info.name) {
-            warnings.push("Missing 'name' in personal_info");
+            warnings.push('Missing \'name\' in personal_info');
         }
-        
+
         if (warnings.length > 0) {
             warnings.forEach(warning => {
                 console.log(chalk.yellow(`⚠️  Warning: ${warning}`));
@@ -177,11 +188,17 @@ class CVGenerator {
     }
 
     /**
-     * Main generation process
-     */
+   * Main generation process
+   */
     async generate(options) {
-        const { template: templatePath, input: inputPath, output: outputPath, htmlOnly, validateOnly } = options;
-        
+        const {
+            template: templatePath,
+            input: inputPath,
+            output: outputPath,
+            htmlOnly,
+            validateOnly,
+        } = options;
+
         console.log(chalk.blue('🚀 Starting CV generation...'));
         console.log(chalk.gray(`📄 Template: ${templatePath}`));
         console.log(chalk.gray(`📊 Data: ${inputPath}`));
@@ -189,7 +206,7 @@ class CVGenerator {
             console.log(chalk.gray(`📁 Output: ${outputPath}`));
         }
         console.log();
-        
+
         // Load and validate data
         console.log(chalk.blue('📋 Loading JSON data...'));
         let data;
@@ -197,24 +214,26 @@ class CVGenerator {
             data = await this.loadJsonData(inputPath);
         } catch (error) {
             // Fail fast on validation error
-            console.log(chalk.red('❌ CV generation aborted due to input validation errors.'));
+            console.log(
+                chalk.red('❌ CV generation aborted due to input validation errors.')
+            );
             process.exit(1);
         }
         this.validateData(data);
-        
+
         if (validateOnly) {
             console.log(chalk.green('✅ Data validation completed successfully!'));
             return;
         }
-        
+
         // Load template
         console.log(chalk.blue('🎨 Loading HTML template...'));
         const template = await this.loadTemplate(templatePath);
-        
+
         // Render HTML
         console.log(chalk.blue('🔧 Rendering HTML...'));
         const htmlContent = this.renderHtml(template, data);
-        
+
         // Generate output based on file extension and options
         if (htmlOnly || (outputPath && outputPath.endsWith('.html'))) {
             console.log(chalk.blue('📄 Generating HTML file...'));
@@ -224,17 +243,25 @@ class CVGenerator {
             await this.generatePdf(htmlContent, outputPath);
         } else if (outputPath) {
             // Default to HTML if extension is unclear
-            console.log(chalk.blue('📄 Generating HTML file (use .pdf extension for PDF output)...'));
+            console.log(
+                chalk.blue(
+                    '📄 Generating HTML file (use .pdf extension for PDF output)...'
+                )
+            );
             const htmlPath = outputPath + '.html';
             await this.saveHtml(htmlContent, htmlPath);
         }
-        
+
         console.log();
         console.log(chalk.green('🎉 CV generation completed successfully!'));
         if (outputPath) {
             if (outputPath.endsWith('.html') || htmlOnly) {
                 console.log(chalk.gray(`📄 Your CV is ready: ${outputPath}`));
-                console.log(chalk.blue('💡 Open in your browser and use "Print to PDF" for a PDF version.'));
+                console.log(
+                    chalk.blue(
+                        '💡 Open in your browser and use "Print to PDF" for a PDF version.'
+                    )
+                );
             } else {
                 console.log(chalk.gray(`📄 Your CV is ready: ${outputPath}`));
             }
@@ -255,8 +282,11 @@ program
     .requiredOption('-i, --input <path>', 'Path to JSON input file')
     .option('-o, --output <path>', 'Path for output file (PDF or HTML)')
     .option('--html-only', 'Generate HTML file only (skip PDF generation)')
-    .option('--validate-only', 'Only validate JSON data without generating output')
-    .action(async (options) => {
+    .option(
+        '--validate-only',
+        'Only validate JSON data without generating output'
+    )
+    .action(async options => {
         try {
             const generator = new CVGenerator();
             await generator.generate(options);
@@ -265,8 +295,6 @@ program
             process.exit(1);
         }
     });
-
-
 
 // Default command
 program
@@ -277,11 +305,17 @@ program
     .option('--validate-only', 'Only validate JSON data')
     .action(async (template, input, output, options) => {
         if (!template || !input || !output) {
-            console.log(chalk.yellow('Usage: jobpare-cv <template> <input> <output> [options]'));
-            console.log(chalk.gray('Or use: jobpare-cv generate -t <template> -i <input> -o <output>'));
+            console.log(
+                chalk.yellow('Usage: jobpare-cv <template> <input> <output> [options]')
+            );
+            console.log(
+                chalk.gray(
+                    'Or use: jobpare-cv generate -t <template> -i <input> -o <output>'
+                )
+            );
             process.exit(1);
         }
-        
+
         try {
             const generator = new CVGenerator();
             await generator.generate({
@@ -289,7 +323,7 @@ program
                 input,
                 output,
                 htmlOnly: options.htmlOnly,
-                validateOnly: options.validateOnly
+                validateOnly: options.validateOnly,
             });
         } catch (error) {
             console.error(chalk.red(`❌ Error: ${error.message}`));

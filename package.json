@@ -8,7 +8,8 @@
     "start": "node src/generate.js",
     "generate": "node src/generate.js generate",
     "test": "jest",
-    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "lint:all": "eslint src/ docs/js/",
     "format": "prettier --write src/"
   },
   "keywords": [
