@@ -171,6 +171,7 @@ body {
     grid-template-columns: 30% 70%;
     gap: 0;
     min-height: 600px;
+    max-height: 80vh; /* Limit maximum height to enable scrolling */
 }
 
 .editor-panel {
@@ -233,18 +234,89 @@ body {
     flex: 1;
     padding: 20px;
     overflow-y: auto;
+    max-height: calc(80vh - 120px); /* Subtract header and button heights */
+    min-height: 400px; /* Ensure minimum content area */
+    scroll-behavior: smooth; /* Smooth scrolling */
+    position: relative;
+}
+
+/* Scroll indicator shadow - shows when content is scrollable */
+.panel-content::before {
+    content: '';
+    position: sticky;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 10px;
+    background: linear-gradient(to bottom, var(--bg-primary) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 1;
+    margin: -20px -20px 10px -20px;
+}
+
+.panel-content::after {
+    content: '';
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 10px;
+    background: linear-gradient(to top, var(--bg-primary) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 1;
+    margin: 10px -20px -20px -20px;
+}
+
+/* Custom scrollbar for form sections */
+.panel-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.panel-content::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+    border-radius: 4px;
+}
+
+.panel-content::-webkit-scrollbar-thumb {
+    background: var(--border-secondary);
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+.panel-content::-webkit-scrollbar-thumb:hover {
+    background: var(--text-accent);
 }
 
 /* Form styles */
 .form-section {
     margin-bottom: 25px;
+    background: var(--bg-secondary);
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border-primary);
+    transition: all 0.2s ease;
+}
+
+.form-section:hover {
+    border-color: var(--border-secondary);
+    box-shadow: var(--shadow-sm);
 }
 
 .form-section h4 {
     color: var(--text-accent);
     margin-bottom: 15px;
-    padding-bottom: 5px;
+    padding-bottom: 8px;
     border-bottom: 2px solid var(--border-primary);
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.form-section h4::before {
+    content: '📝';
+    font-size: 0.9rem;
 }
 
 .form-group {
@@ -416,6 +488,12 @@ textarea.form-control {
 @media (max-width: 768px) {
     .editor-layout {
         grid-template-columns: 1fr;
+        max-height: 70vh; /* Adjust for mobile */
+    }
+    
+    .panel-content {
+        max-height: calc(70vh - 100px); /* Adjust for mobile */
+        min-height: 300px;
     }
     
     .editor-panel {
@@ -446,6 +524,11 @@ textarea.form-control {
         width: 100%;
         max-width: 300px;
         justify-content: center;
+    }
+    
+    .form-section {
+        margin-bottom: 20px;
+        padding: 12px;
     }
 }
 
