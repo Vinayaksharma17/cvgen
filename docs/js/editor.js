@@ -5,6 +5,8 @@ class CVEditor {
         this.schema = {};
         this.template = '';
         this.validator = null;
+        this.previewModal = null;
+        this.generatedHTML = '';
         
         this.init();
     }
@@ -57,6 +59,11 @@ class CVEditor {
     async init() {
         this.setupEventListeners();
         
+        // Initialize preview button state
+        const openPreviewBtn = document.getElementById('openPreviewBtn');
+        openPreviewBtn.disabled = true;
+        openPreviewBtn.innerHTML = '<i class="fas fa-clock"></i> Loading...';
+        
         // Try to restore saved role from localStorage
         const savedRole = this.loadFromStorage('currentRole');
         if (savedRole) {
@@ -105,6 +112,11 @@ class CVEditor {
             this.formatJSON();
         });
 
+        // Open full preview
+        document.getElementById('openPreviewBtn').addEventListener('click', () => {
+            this.openFullPreview();
+        });
+
         // Refresh preview
         document.getElementById('refreshPreview').addEventListener('click', () => {
             this.generatePreview();
@@ -127,6 +139,13 @@ class CVEditor {
 
         document.getElementById('fileInput').addEventListener('change', (e) => {
             this.loadFile(e.target.files[0]);
+        });
+
+        // Handle keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this.previewModal && this.previewModal.classList.contains('show')) {
+                this.closeFullPreview();
+            }
         });
     }
 
@@ -434,7 +453,32 @@ class CVEditor {
     }
 
     generatePreview() {
+        // Update the button state
+        const openPreviewBtn = document.getElementById('openPreviewBtn');
         const previewContainer = document.getElementById('previewContainer');
+        
+        // Check if we have meaningful data to preview
+        const hasData = this.cvData && (
+            (this.cvData.personal_info && (this.cvData.personal_info.name || this.cvData.personal_info.email)) ||
+            (this.cvData.work_experience && this.cvData.work_experience.length > 0) ||
+            (this.cvData.education && this.cvData.education.length > 0) ||
+            (this.cvData.skills && this.cvData.skills.length > 0)
+        );
+        
+        if (!hasData) {
+            // Show placeholder when no meaningful data
+            openPreviewBtn.disabled = true;
+            openPreviewBtn.innerHTML = '<i class="fas fa-plus-circle"></i> Add Data to Preview';
+            
+            previewContainer.innerHTML = `
+                <div class="preview-placeholder">
+                    <i class="fas fa-file-alt"></i>
+                    <p>Fill in your CV information to see live preview</p>
+                    <small>Your CV will appear here automatically as you type</small>
+                </div>
+            `;
+            return;
+        }
         
         try {
             // Register Handlebars helpers only once
@@ -449,18 +493,34 @@ class CVEditor {
             const template = Handlebars.compile(this.template);
             
             // Generate HTML
-            const html = template(this.cvData);
+            this.generatedHTML = template(this.cvData);
             
-            // Update preview with isolated iframe to prevent style conflicts
+            // Enable the preview button
+            openPreviewBtn.disabled = false;
+            openPreviewBtn.innerHTML = '<i class="fas fa-external-link-alt"></i> Open Full Preview';
+            
+            // Show live preview in the container with iframe to prevent style conflicts
             previewContainer.innerHTML = `
-                <iframe 
-                    id="previewFrame" 
-                    style="width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 4px;"
-                    srcdoc="${html.replace(/"/g, '&quot;')}"
-                ></iframe>
+                <div class="live-preview-wrapper">
+                    <div class="preview-header">
+                        <span class="preview-label">
+                            <i class="fas fa-eye"></i> Live Preview
+                        </span>
+                        <small class="preview-hint">Click "Open Full Preview" for downloads and better viewing</small>
+                    </div>
+                    <iframe 
+                        id="livePreviewFrame" 
+                        class="live-preview-iframe"
+                        srcdoc="${this.generatedHTML.replace(/"/g, '&quot;')}"
+                    ></iframe>
+                </div>
             `;
             
         } catch (error) {
+            // Disable the preview button on error
+            openPreviewBtn.disabled = true;
+            openPreviewBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Preview Error';
+            
             previewContainer.innerHTML = `
                 <div class="preview-placeholder">
                     <i class="fas fa-exclamation-triangle"></i>
@@ -536,6 +596,222 @@ class CVEditor {
         } catch (error) {
             this.showValidationMessage('❌ Error loading file: ' + error.message, 'error');
         }
+    }
+
+    createPreviewModal() {
+        if (this.previewModal) {
+            return this.previewModal;
+        }
+
+        const modal = document.createElement('div');
+        modal.className = 'preview-modal';
+        modal.innerHTML = `
+            <div class="preview-modal-content">
+                <div class="preview-modal-header">
+                    <h3>
+                        <i class="fas fa-file-alt"></i>
+                        CV Preview
+                    </h3>
+                    <div class="preview-modal-actions">
+                        <button id="modalDownloadPdfBtn" class="btn btn-pdf">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                        <button id="modalDownloadHtmlBtn" class="btn btn-html">
+                            <i class="fas fa-file-code"></i> HTML
+                        </button>
+                        <button id="modalDownloadDocBtn" class="btn btn-doc">
+                            <i class="fas fa-file-word"></i> DOC
+                        </button>
+                        <button id="openInNewTabBtn" class="btn btn-secondary">
+                            <i class="fas fa-external-link-alt"></i> New Tab
+                        </button>
+                        <button class="close-preview">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="preview-modal-body">
+                    <iframe class="preview-iframe" id="previewIframe"></iframe>
+                </div>
+            </div>
+        `;
+
+        // Add event listeners
+        modal.querySelector('.close-preview').addEventListener('click', () => {
+            this.closeFullPreview();
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeFullPreview();
+            }
+        });
+
+        modal.querySelector('#modalDownloadPdfBtn').addEventListener('click', () => {
+            this.downloadAsPDF();
+        });
+
+        modal.querySelector('#modalDownloadHtmlBtn').addEventListener('click', () => {
+            this.downloadAsHTML();
+        });
+
+        modal.querySelector('#modalDownloadDocBtn').addEventListener('click', () => {
+            this.downloadAsDoc();
+        });
+
+        modal.querySelector('#openInNewTabBtn').addEventListener('click', () => {
+            this.openInNewTab();
+        });
+
+        document.body.appendChild(modal);
+        this.previewModal = modal;
+        return modal;
+    }
+
+    openFullPreview() {
+        if (!this.generatedHTML) {
+            this.showValidationMessage('❌ No CV data to preview. Please fill in your information first.', 'error');
+            return;
+        }
+
+        const modal = this.createPreviewModal();
+        const iframe = modal.querySelector('#previewIframe');
+        
+        // Set the HTML content to the iframe
+        iframe.srcdoc = this.generatedHTML;
+        
+        // Show the modal
+        modal.classList.add('show');
+        
+        // Prevent body scroll when modal is open
+        document.body.style.overflow = 'hidden';
+    }
+
+    closeFullPreview() {
+        if (this.previewModal) {
+            this.previewModal.classList.remove('show');
+            document.body.style.overflow = '';
+        }
+    }
+
+    downloadAsHTML() {
+        if (!this.generatedHTML) {
+            this.showValidationMessage('❌ No CV data to download.', 'error');
+            return;
+        }
+
+        // Create a temporary link to download HTML
+        const blob = new Blob([this.generatedHTML], { type: 'text/html' });
+        const filename = `cv-${this.currentRole}-${new Date().toISOString().split('T')[0]}.html`;
+        
+        saveAs(blob, filename);
+        
+        this.showValidationMessage('📄 CV downloaded as HTML. Open in your browser and use "Print to PDF" to create a PDF version.', 'success');
+    }
+
+    openInNewTab() {
+        if (!this.generatedHTML) {
+            this.showValidationMessage('❌ No CV data to open.', 'error');
+            return;
+        }
+
+        const newWindow = window.open();
+        if (newWindow) {
+            newWindow.document.open();
+            newWindow.document.write(this.generatedHTML);
+            newWindow.document.close();
+            newWindow.document.title = `CV Preview - ${this.cvData.personal_info?.name || 'Unknown'}`;
+        } else {
+            this.showValidationMessage('❌ Popup blocked. Please allow popups for this site.', 'error');
+        }
+    }
+
+    downloadAsPDF() {
+        if (!this.generatedHTML) {
+            this.showValidationMessage('❌ No CV data to download.', 'error');
+            return;
+        }
+
+        // Create a new window with the CV content for printing
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+            // Enhanced HTML with print styles
+            const printHTML = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>CV - ${this.cvData.personal_info?.name || 'Download'}</title>
+                    <style>
+                        @media print {
+                            body { margin: 0; padding: 20px; }
+                            @page { margin: 1cm; size: A4; }
+                        }
+                        body { font-family: Arial, sans-serif; line-height: 1.4; }
+                    </style>
+                </head>
+                <body>
+                    ${this.generatedHTML.replace(/<html[^>]*>|<\/html>|<head[^>]*>.*?<\/head>|<body[^>]*>|<\/body>/gi, '')}
+                </body>
+                </html>
+            `;
+            
+            printWindow.document.open();
+            printWindow.document.write(printHTML);
+            printWindow.document.close();
+            
+            // Trigger print dialog
+            setTimeout(() => {
+                printWindow.print();
+                this.showValidationMessage('📄 Print dialog opened. Choose "Save as PDF" in the print options.', 'success');
+            }, 500);
+        } else {
+            this.showValidationMessage('❌ Popup blocked. Please allow popups to download PDF.', 'error');
+        }
+    }
+
+    downloadAsDoc() {
+        if (!this.generatedHTML) {
+            this.showValidationMessage('❌ No CV data to download.', 'error');
+            return;
+        }
+
+        // Create DOC-compatible HTML
+        const docHTML = `
+            <!DOCTYPE html>
+            <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'>
+            <head>
+                <meta charset='utf-8'>
+                <title>CV - ${this.cvData.personal_info?.name || 'Download'}</title>
+                <!--[if gte mso 9]>
+                <xml>
+                    <w:WordDocument>
+                        <w:View>Print</w:View>
+                        <w:Zoom>90</w:Zoom>
+                        <w:DoNotPromptForConvert/>
+                        <w:DoNotAutofitConstrainedTables/>
+                    </w:WordDocument>
+                </xml>
+                <![endif]-->
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.4; margin: 20px; }
+                    h1, h2, h3 { color: #333; }
+                    .section { margin-bottom: 20px; }
+                </style>
+            </head>
+            <body>
+                ${this.generatedHTML.replace(/<html[^>]*>|<\/html>|<head[^>]*>.*?<\/head>|<body[^>]*>|<\/body>/gi, '')}
+            </body>
+            </html>
+        `;
+
+        const blob = new Blob([docHTML], { 
+            type: 'application/msword'
+        });
+        
+        const filename = `cv-${this.currentRole}-${new Date().toISOString().split('T')[0]}.doc`;
+        saveAs(blob, filename);
+        
+        this.showValidationMessage('📄 CV downloaded as DOC file. You can open it with Microsoft Word.', 'success');
     }
 }
 
